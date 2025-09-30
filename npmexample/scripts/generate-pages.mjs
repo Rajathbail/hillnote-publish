@@ -11,8 +11,11 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, '..')
 
-// Import site config for centralized URL
-const configPath = path.join(projectRoot, 'hillnoteDoc', 'config', 'site.config.js')
+// Import site config for centralized URL with fallback
+let configPath = path.join(projectRoot, 'hillnoteDoc', 'config', 'site.config.js')
+if (!fs.existsSync(configPath)) {
+  configPath = path.join(projectRoot, 'src', 'hillnoteDoc', 'config', 'site.config.js')
+}
 const configModule = await import(configPath)
 const siteConfig = configModule.siteConfig
 

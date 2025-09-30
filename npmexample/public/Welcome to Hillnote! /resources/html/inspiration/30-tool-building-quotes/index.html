@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Building Quotes</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            line-height: 1.7;
+            color: #2c3e50;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title h1 {
+            color: #2c3e50;
+            font-size: 1.8em;
+            margin: 0 0 8px 0;
+            font-weight: 600;
+        }
+        
+        .title p {
+            color: #7f8c8d;
+            margin: 0;
+            font-size: 0.95em;
+        }
+        
+        .quote {
+            font-size: 1.3em;
+            font-style: italic;
+            margin: 40px 0;
+            text-align: center;
+            color: #34495e;
+        }
+        
+        .author {
+            text-align: right;
+            color: #7f8c8d;
+            margin-top: 15px;
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .copy-btn {
+            background: #27ae60;
+        }
+        
+        .copy-btn:hover {
+            background: #229954;
+        }
+        
+        .copy-btn.copied {
+            background: #16a085;
+        }
+        
+        .add-btn {
+            background: #e67e22;
+        }
+        
+        .add-btn:hover {
+            background: #d35400;
+        }
+        
+        .counter {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85em;
+            margin-top: 25px;
+            font-weight: 500;
+        }
+        
+        .hint {
+            text-align: center;
+            color: #bdc3c7;
+            font-size: 0.8em;
+            margin-top: 15px;
+        }
+        
+        .add-quote-form {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 2px dashed #e74c3c;
+            display: none;
+        }
+        
+        .add-quote-form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+        
+        .form-group textarea,
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9em;
+            resize: vertical;
+        }
+        
+        .form-group textarea {
+            min-height: 80px;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .save-btn {
+            background: #e74c3c;
+        }
+        
+        .save-btn:hover {
+            background: #c0392b;
+        }
+        
+        .cancel-btn {
+            background: #95a5a6;
+        }
+        
+        .cancel-btn:hover {
+            background: #7f8c8d;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 180px;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">
+            <h1>🔨 Tool Building Quotes</h1>
+            <p>Inspiration for makers who craft their own solutions</p>
+        </div>
+        
+        <div class="controls">
+            <button onclick="showRandomQuote()">Random Quote</button>
+            <button class="copy-btn" id="copyBtn" onclick="copyQuote()">Copy Quote</button>
+            <button class="add-btn" onclick="toggleAddForm()">Add Quote</button>
+        </div>
+        
+        <div class="quote" id="quote"></div>
+        <div class="author" id="author"></div>
+        <div class="counter" id="counter"></div>
+        <div class="hint">Press spacebar for a new quote • Press 'C' to copy • Press 'A' to add</div>
+        
+        <div class="add-quote-form" id="addForm">
+            <div class="form-group">
+                <label for="quoteInput">Quote:</label>
+                <textarea id="quoteInput" placeholder="Enter your inspiring quote about building tools..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="authorInput">Author:</label>
+                <input type="text" id="authorInput" placeholder="Your name or source">
+            </div>
+            <div class="form-actions">
+                <button class="cancel-btn" onclick="cancelAdd()">Cancel</button>
+                <button class="save-btn" onclick="saveQuote()">Save Quote</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const defaultQuotes = [
+            { text: "Like artists who craft custom brushes and pens for their specific needs, Hillnote Tools lets you create personal tools that help you work in your own unique way.", author: "Hillnote Philosophy" },
+            { text: "Give a man a tool and he'll work for a day. Teach a man to build tools and he'll create solutions for a lifetime.", author: "Modern Proverb" },
+            { text: "The best tool is the one you build yourself, because it fits your hand and your mind perfectly.", author: "Craftsman's Wisdom" },
+            { text: "Every expert was once a beginner who wasn't afraid to build their first imperfect tool.", author: "Builder's Truth" },
+            { text: "Tools are not just objects; they are extensions of our creativity and problem-solving ability.", author: "Maker's Manifesto" },
+            { text: "The carpenter who makes his own tools never lacks for exactly what he needs.", author: "Workshop Wisdom" },
+            { text: "In the digital age, building your own tools is the new literacy.", author: "Tech Philosophy" },
+            { text: "A tool you build teaches you twice: once in the making, once in the using.", author: "Learning Principle" },
+            { text: "The most powerful software is the one that solves your specific problem, not everyone's general problem.", author: "Custom Solutions" },
+            { text: "Every great tool started as someone's frustrated 'I wish there was a way to...'.", author: "Innovation Insight" },
+            { text: "Build tools not just for efficiency, but for the joy of creating something uniquely yours.", author: "Creator's Joy" },
+            { text: "The tool that fits your workflow perfectly is the one you designed yourself.", author: "Workflow Wisdom" },
+            { text: "Small tools, built with love, often outlast grand projects built with ego.", author: "Humble Builder" },
+            { text: "Your workspace gets more powerful the more tools you add to it.", author: "Hillnote Principle" },
+            { text: "A tool is only as good as the problem it solves and the person who wields it.", author: "Tool Philosophy" },
+            { text: "Building tools is like gardening - plant simple seeds and watch powerful solutions grow.", author: "Growth Metaphor" },
+            { text: "The best automation is the one you understand completely because you built it yourself.", author: "Automation Truth" },
+            { text: "Every line of code in a personal tool is a step toward digital independence.", author: "Independence Advocate" },
+            { text: "A tool built for your exact need is worth a thousand generic solutions.", author: "Precision Over Popularity" },
+            { text: "The most satisfying click is on a button you coded yourself.", author: "Developer's Satisfaction" },
+            { text: "Building tools transforms you from a user into a creator, from consumer into producer.", author: "Transformation Truth" },
+            { text: "A simple tool that works is infinitely better than a complex tool that doesn't.", author: "Simplicity Principle" },
+            { text: "Your tools should feel like extensions of your thoughts, not obstacles to them.", author: "Seamless Design" },
+            { text: "The art of tool-making is knowing exactly how much and no more.", author: "Minimalist Maker" },
+            { text: "Every custom tool is a small rebellion against one-size-fits-all thinking.", author: "Customization Revolutionary" },
+            { text: "Build tools that make your future self thank your present self.", author: "Time Traveler's Advice" },
+            { text: "A tool shared is a tool doubled; a tool improved is a community uplifted.", author: "Open Source Spirit" },
+            { text: "The journey of building a tool often teaches you more than the destination of using it.", author: "Process Over Product" },
+            { text: "In a world of endless apps, the power to build your own is true freedom.", author: "Digital Freedom Fighter" },
+            { text: "Great tools are born from small frustrations and nurtured with persistent iteration.", author: "Iterative Wisdom" }
+        ];
+        
+        let quotes = [...defaultQuotes];
+        let currentIndex = 0;
+        
+        // Load custom quotes from localStorage
+        function loadCustomQuotes() {
+            const saved = localStorage.getItem('customToolQuotes');
+            if (saved) {
+                const customQuotes = JSON.parse(saved);
+                quotes = [...defaultQuotes, ...customQuotes];
+            }
+        }
+        
+        // Save custom quotes to localStorage
+        function saveCustomQuotes() {
+            const customQuotes = quotes.slice(defaultQuotes.length);
+            localStorage.setItem('customToolQuotes', JSON.stringify(customQuotes));
+        }
+        
+        function showRandomQuote() {
+            currentIndex = Math.floor(Math.random() * quotes.length);
+            displayQuote();
+        }
+        
+        function displayQuote() {
+            const quote = quotes[currentIndex];
+            document.getElementById('quote').textContent = '"' + quote.text + '"';
+            document.getElementById('author').textContent = '— ' + quote.author;
+            document.getElementById('counter').textContent = (currentIndex + 1) + ' of ' + quotes.length;
+        }
+        
+        function copyQuote() {
+            const quote = quotes[currentIndex];
+            const textToCopy = '"' + quote.text + '" — ' + quote.author;
+            const copyBtn = document.getElementById('copyBtn');
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Quote';
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                });
+            } else {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy Quote';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }
+        }
+        
+        function toggleAddForm() {
+            const form = document.getElementById('addForm');
+            form.classList.toggle('active');
+            if (form.classList.contains('active')) {
+                document.getElementById('quoteInput').focus();
+            }
+        }
+        
+        function cancelAdd() {
+            document.getElementById('addForm').classList.remove('active');
+            document.getElementById('quoteInput').value = '';
+            document.getElementById('authorInput').value = '';
+        }
+        
+        function saveQuote() {
+            const quoteText = document.getElementById('quoteInput').value.trim();
+            const authorText = document.getElementById('authorInput').value.trim();
+            
+            if (!quoteText) {
+                alert('Please enter a quote!');
+                return;
+            }
+            
+            if (!authorText) {
+                alert('Please enter an author!');
+                return;
+            }
+            
+            const newQuote = {
+                text: quoteText,
+                author: authorText
+            };
+            
+            quotes.push(newQuote);
+            saveCustomQuotes();
+            
+            // Show the new quote
+            currentIndex = quotes.length - 1;
+            displayQuote();
+            
+            // Reset form
+            cancelAdd();
+            
+            // Show feedback
+            const addBtn = document.querySelector('.add-btn');
+            const originalText = addBtn.textContent;
+            addBtn.textContent = 'Quote Added!';
+            setTimeout(() => {
+                addBtn.textContent = originalText;
+            }, 2000);
+        }
+        
+        // Initialize
+        loadCustomQuotes();
+        showRandomQuote();
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+                return; // Don't trigger shortcuts when typing
+            }
+            
+            if (e.code === 'Space') {
+                e.preventDefault();
+                showRandomQuote();
+            } else if (e.key === 'c' || e.key === 'C') {
+                copyQuote();
+            } else if (e.key === 'a' || e.key === 'A') {
+                toggleAddForm();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -3,5 +3,15 @@ NextJS Boilerplate/node_modules/
 NextJS Boilerplate/.next/
 NextJS Boilerplate/.claude/
 
+# hillnote-publish-package - Build artifacts and dependencies
+hillnote-publish-package/node_modules/
+hillnote-publish-package/.next/
+hillnote-publish-package/.claude/
+
+# npmexample - Build artifacts and dependencies
+npmexample/node_modules/
+npmexample/.next/
+npmexample/.claude/
+
 # OS files
 .DS_Store

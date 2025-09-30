@@ -1,0 +1,10 @@
+{
+  "name": "meeting-time-finder",
+  "description": "A simple but powerful meeting time calculator that shows the same moment across multiple time zones - perfect example of how a custom tool solves a specific problem better than generic apps.",
+  "category": "utilities",
+  "entryPoint": "index.html",
+  "files": [
+    "index.html"
+  ],
+  "createdAt": "2025-09-05T18:31:54.324Z"
+}

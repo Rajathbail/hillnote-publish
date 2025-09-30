@@ -1,0 +1,13 @@
+{
+  "name": "30-tool-building-quotes",
+  "category": "inspiration",
+  "description": "A collection of 30 inspiring quotes about building your own tools, perfect for makers and creators who want to craft their own solutions.",
+  "entryPoint": "index.html",
+  "files": [
+    "index.html",
+    "styles.css",
+    "script.js"
+  ],
+  "createdAt": "2025-09-05T11:57:28.768Z",
+  "lastModified": "2025-09-05T18:04:44.791Z"
+}

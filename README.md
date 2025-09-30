@@ -1,17 +1,10 @@
-# Hillnote Publish
+# @hillnote/publish
 
 Transform your Hillnote workspace into a beautiful, SEO-optimized documentation website with Next.js and modern UI components.
 
 ## 🚀 Overview
 
-Hillnote Publish is a complete documentation generation system that converts your Hillnote markdown workspace into a production-ready Next.js website. It includes a pre-configured boilerplate, reusable components, and automated page generation scripts.
-
-## 📦 What's Inside
-
-This package contains:
-
-- **`hillnoteDoc/`** - Core documentation system components and utilities
-- **`NextJS Boilerplate/`** - Ready-to-use Next.js project template with example setup
+`@hillnote/publish` is a complete documentation generation system that converts your Hillnote markdown workspace into a production-ready Next.js website. Simply run one command to set up the entire documentation system in your Next.js project.
 
 ## ✨ Features
 
@@ -26,10 +19,106 @@ This package contains:
 - 📝 Advanced markdown rendering with syntax highlighting
 - 🏷️ Support for document metadata, related documents, and author's notes
 - ⚡ Static page generation for optimal performance
+- 🛠️ Simple CLI setup - one command to install everything
 
-## 🎯 Quick Start
+## 🎯 Quick Start (Recommended)
 
-### Option 1: Use the NextJS Boilerplate (Recommended)
+### Install in Your Next.js Project
+
+```bash
+# Navigate to your Next.js project
+cd your-nextjs-project
+
+# Run the initialization command
+npx @hillnote/publish init
+
+# Or if using src/app structure
+npx @hillnote/publish init --src
+```
+
+That's it! The CLI will automatically:
+- ✓ Copy the `hillnoteDoc` system to your project
+- ✓ Set up API routes for search and document fetching
+- ✓ Add the page generation script
+- ✓ Update your package.json with necessary scripts
+- ✓ Configure everything based on your project structure
+
+### Next Steps
+
+1. **Add your Hillnote workspace:**
+   ```bash
+   cp -r "/path/to/Welcome to Hillnote!" public/
+   ```
+
+2. **Configure your site:**
+   Edit `hillnoteDoc/config/site.config.js` (or `src/hillnoteDoc/config/site.config.js`)
+
+3. **Generate pages:**
+   ```bash
+   npm run generate-pages
+   ```
+
+4. **Start your dev server:**
+   ```bash
+   npm run dev
+   ```
+
+Your documentation site will be live at `http://localhost:3000/doc`
+
+## 📦 What Gets Installed
+
+When you run `npx @hillnote/publish init`, the following structure is added to your project:
+
+```
+your-project/
+├── hillnoteDoc/              # Documentation system (or src/hillnoteDoc/)
+│   ├── components/          # UI components
+│   ├── config/             # Configuration
+│   ├── lib/                # Utilities
+│   └── styles/             # Styles
+├── app/api/                # API routes (or src/app/api/)
+│   ├── ai-sitemap/
+│   ├── docs/
+│   └── search/
+└── scripts/
+    └── generate-pages.mjs  # Page generation script
+```
+
+## 🔧 Installation & Setup
+
+### Prerequisites
+- Node.js 18+
+- Next.js 15+ project (with App Router)
+- A Hillnote workspace exported with markdown files
+
+### Step 1: Initialize
+```bash
+npx @hillnote/publish init
+```
+
+### Step 2: Add Your Workspace
+Copy your Hillnote workspace folder to `public/`:
+```bash
+cp -r "/path/to/Welcome to Hillnote!" public/
+```
+
+### Step 3: Configure
+Edit `hillnoteDoc/config/site.config.js`:
+- Set your site name and description
+- Update the workspace path to match your folder name
+- Customize routing, SEO, and UI settings
+
+### Step 4: Generate & Run
+```bash
+npm run generate-pages
+npm run dev
+```
+
+## 📦 Alternative: Manual Setup (For Advanced Users)
+
+If you prefer not to use the CLI or want more control:
+
+### Option 1: Use the NextJS Boilerplate
 
 1. **Copy the boilerplate to your project location:**
    ```bash
