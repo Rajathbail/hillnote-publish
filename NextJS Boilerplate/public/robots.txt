@@ -1,0 +1,55 @@
+# Robots.txt for HillnoteWiki
+# https://www.robotstxt.org/robotstxt.html
+
+# Allow all search engines to crawl the site
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: http://localhost:3000/sitemap.xml
+
+# API endpoints for AI agents and documentation access
+Allow: /api/docs
+Allow: /api/ai-sitemap
+Allow: /api/documents
+Allow: /api/document/
+Allow: /api/search
+
+# Allow search engines to access static assets
+Allow: /images/
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.webp$
+
+# AI/ML crawlers - ALLOWED for documentation learning
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Perplexity-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /

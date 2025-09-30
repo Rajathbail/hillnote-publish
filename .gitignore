@@ -1,0 +1,7 @@
+# NextJS Boilerplate - Build artifacts and dependencies
+NextJS Boilerplate/node_modules/
+NextJS Boilerplate/.next/
+NextJS Boilerplate/.claude/
+
+# OS files
+.DS_Store

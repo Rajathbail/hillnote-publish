@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./*"],
+      "@hillnote/wiki": ["./node_modules/@hillnote/wiki/index.js"],
+      "@hillnote/wiki/*": ["./node_modules/@hillnote/wiki/*"]
+    }
+  },
+  "include": ["**/*.js", "**/*.jsx"],
+  "exclude": ["node_modules"]
+}
