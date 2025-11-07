@@ -1,5 +1,7 @@
 # @hillnote/publish
 
+<img width="1496" height="772" alt="image" src="https://github.com/user-attachments/assets/e5cf7d32-ec03-414d-8a49-390ea727679f" />
+
 Transform your Hillnote workspace into a beautiful, SEO-optimized documentation website with Next.js and modern UI components.
 
 ## 🚀 Overview
