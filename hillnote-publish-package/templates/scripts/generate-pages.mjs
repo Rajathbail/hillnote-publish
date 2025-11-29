@@ -305,7 +305,7 @@ function parseCustomMarkdown(markdown, relativePath) {
   return processedMarkdown
 }
 
-// Clean up old generated pages (except [...path] folder and page.js)
+// Clean up old generated pages (except [...path] folder, page.* and layout.* files)
 function cleanOldPages(dir) {
   if (!fs.existsSync(dir)) return
 
@@ -314,13 +314,12 @@ function cleanOldPages(dir) {
     const itemPath = path.join(dir, item)
     const stat = fs.statSync(itemPath)
 
-    // Skip the dynamic route folder and main page
-    // Note: layout.jsx will be regenerated, so we don't need to preserve it
-    if (item === '[...path]' || item === 'page.js') continue
+    // Skip the dynamic route folder, root page.* and layout.* files (always preserved)
+    if (item === '[...path]' || item.startsWith('page.') || item.startsWith('layout.')) continue
 
     if (stat.isDirectory()) {
       fs.rmSync(itemPath, { recursive: true })
-    } else if (item.endsWith('.jsx')) {
+    } else if (item.endsWith('.jsx') || item.endsWith('.js')) {
       fs.unlinkSync(itemPath)
     }
   }
@@ -328,6 +327,13 @@ function cleanOldPages(dir) {
 
 // Generate the shared layout file for all doc pages
 function generateLayout() {
+  // Check if any layout.* file exists (preserve user's custom layout)
+  const existingLayout = fs.readdirSync(OUTPUT_PATH).find(f => f.startsWith('layout.'))
+  if (existingLayout) {
+    console.log(`  ⏭ Skipping layout generation: existing /${appFolder}/${siteConfig.routing.docBase}/${existingLayout}`)
+    return
+  }
+
   const layoutPath = path.join(OUTPUT_PATH, 'layout.jsx')
 
   const layoutContent = `"use client"
@@ -765,8 +771,9 @@ export default function Page() {
 }
 `
 
-  // Write the JSX page
-  fs.writeFileSync(path.join(outputDir, 'page.jsx'), pageContent)
+  // Write the JSX page (always overwrite - these are generated from markdown)
+  const pageFilePath = path.join(outputDir, 'page.jsx')
+  fs.writeFileSync(pageFilePath, pageContent)
 
   return {
     path: relativePath,
@@ -1124,16 +1131,46 @@ Disallow: /
   fs.writeFileSync(path.join(projectRoot, 'public', 'robots.txt'), robotsContent)
 }
 
+// Parse command-line arguments
+const args = process.argv.slice(2)
+const options = {
+  noSitemap: args.includes('--no-sitemap'),
+  noRobots: args.includes('--no-robots'),
+  noLLMs: args.includes('--no-llms'),
+  help: args.includes('--help') || args.includes('-h')
+}
+
+// Show help if requested
+if (options.help) {
+  console.log(`
+Usage: node generate-pages.mjs [options]
+
+Options:
+  --no-sitemap     Do not generate sitemap.xml
+  --no-robots      Do not generate robots.txt
+  --no-llms        Do not generate llms.txt and llms-txt.txt files
+  -h, --help       Show this help message
+
+Note: doc/page.* and doc/layout.* files are always preserved.
+      Document pages are always regenerated from markdown.
+
+Examples:
+  node generate-pages.mjs                           # Generate everything
+  node generate-pages.mjs --no-sitemap --no-robots  # Skip sitemap and robots.txt generation
+`)
+  process.exit(0)
+}
+
 // Main execution
 console.log('🔄 Generating SEO-optimized static pages from Hillnote documents...\n')
 
-// Clean old generated pages first
+// Clean old generated pages first (preserves page.* and layout.* files)
 cleanOldPages(OUTPUT_PATH)
 
-// Generate the shared layout
+// Generate the shared layout (only if no layout.* exists)
 generateLayout()
 
-// Process all documents
+// Process all documents (always regenerates document pages from markdown)
 const pages = processDirectory(HILLNOTE_PATH)
 
 if (pages.length === 0) {
@@ -1142,17 +1179,31 @@ if (pages.length === 0) {
 }
 
 // Generate sitemap for SEO
-generateSitemap(pages)
+if (!options.noSitemap) {
+  generateSitemap(pages)
+} else {
+  console.log('  ⏭ Skipping sitemap.xml generation (--no-sitemap)')
+}
 
 // Generate robots.txt
-generateRobotsTxt()
+if (!options.noRobots) {
+  generateRobotsTxt()
+} else {
+  console.log('  ⏭ Skipping robots.txt generation (--no-robots)')
+}
 
 // Generate LLMs.txt files
-generateLLMsTxt(pages)
+if (!options.noLLMs) {
+  generateLLMsTxt(pages)
+} else {
+  console.log('  ⏭ Skipping llms.txt generation (--no-llms)')
+}
 
-console.log(`\n✅ Successfully generated ${pages.length} SEO-optimized static pages!`)
+console.log(`\n✅ Successfully generated ${pages.length} static pages!`)
 console.log('📁 Pages created in:', OUTPUT_PATH)
-console.log('🗺️  Sitemap created: public/sitemap.xml (all pages)')
-console.log('🤖 Robots.txt: public/robots.txt')
-console.log('🤖 LLMs.txt: public/llms.txt (main LLM-readable file)')
-console.log('📚 Extended LLMs: public/llms-txt.txt (with content previews)')
+if (!options.noSitemap) console.log('🗺️  Sitemap created: public/sitemap.xml (all pages)')
+if (!options.noRobots) console.log('🤖 Robots.txt: public/robots.txt')
+if (!options.noLLMs) {
+  console.log('🤖 LLMs.txt: public/llms.txt (main LLM-readable file)')
+  console.log('📚 Extended LLMs: public/llms-txt.txt (with content previews)')
+}

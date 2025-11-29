@@ -45,6 +45,20 @@ That's it! The CLI will automatically set up the entire documentation system.
 
 Visit `http://localhost:3000/doc` to see your documentation!
 
+## 🛠️ Page Generation Options
+
+```bash
+node scripts/generate-pages.mjs [options]
+
+Options:
+  --no-sitemap     Do not generate sitemap.xml
+  --no-robots      Do not generate robots.txt
+  --no-llms        Do not generate llms.txt and llms-txt.txt files
+  -h, --help       Show help message
+```
+
+**Note:** `doc/page.*` and `doc/layout.*` files are always preserved, allowing you to customize the root page and layout.
+
 ## ✨ Features
 
 - 📚 Beautiful hierarchical navigation sidebar

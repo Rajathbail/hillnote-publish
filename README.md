@@ -389,6 +389,33 @@ npm run generate-pages
 npm run build
 ```
 
+### Command Line Options
+
+```bash
+node scripts/generate-pages.mjs [options]
+
+Options:
+  --no-sitemap     Do not generate sitemap.xml
+  --no-robots      Do not generate robots.txt
+  --no-llms        Do not generate llms.txt and llms-txt.txt files
+  -h, --help       Show help message
+```
+
+**Note:** `doc/page.*` and `doc/layout.*` files are always preserved if they exist, allowing you to customize the root documentation page and layout without them being overwritten.
+
+#### Examples
+
+```bash
+# Generate everything (default)
+npm run generate-pages
+
+# Skip sitemap and robots.txt generation
+node scripts/generate-pages.mjs --no-sitemap --no-robots
+
+# Only generate document pages (no SEO files)
+node scripts/generate-pages.mjs --no-sitemap --no-robots --no-llms
+```
+
 ## 🎨 Customization
 
 ### Styling
