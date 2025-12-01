@@ -2,15 +2,16 @@
 
 <img width="1496" height="772" alt="image" src="https://github.com/user-attachments/assets/e5cf7d32-ec03-414d-8a49-390ea727679f" />
 
-Transform your Hillnote workspace into a beautiful, SEO-optimized documentation website with Next.js and modern UI components.
+Transform your Hillnote workspace into a beautiful, SEO-optimized documentation website and blog with Next.js and modern UI components.
 
 ## 🚀 Overview
 
-`@hillnote/publish` is a complete documentation generation system that converts your Hillnote markdown workspace into a production-ready Next.js website. Simply run one command to set up the entire documentation system in your Next.js project.
+`@hillnote/publish` is a complete documentation and blog generation system that converts your Hillnote markdown workspace into a production-ready Next.js website. Simply run one command to set up the entire documentation system, and optionally add a full-featured blog with draft/publish workflow.
 
 ## ✨ Features
 
 - 📚 Beautiful documentation UI with hierarchical navigation sidebar
+- 📰 Full-featured blog system with draft/publish workflow
 - 🎨 Dark/Light theme support with next-themes
 - 📱 Fully responsive design
 - 🔍 Built-in search functionality across all documents
@@ -415,6 +416,180 @@ node scripts/generate-pages.mjs --no-sitemap --no-robots
 # Only generate document pages (no SEO files)
 node scripts/generate-pages.mjs --no-sitemap --no-robots --no-llms
 ```
+
+## 📰 Blog Support
+
+`@hillnote/publish` includes a full-featured blog system that integrates seamlessly with your documentation site.
+
+### Setting Up the Blog
+
+```bash
+# Initialize the blog system in your project
+node scripts/generate-blog.mjs --setup
+```
+
+This creates the following structure:
+
+```
+your-project/
+├── public/
+│   └── blog/
+│       ├── draft/              # Draft posts (not published)
+│       ├── published/          # Published posts (live on site)
+│       └── resources/          # Images and assets
+│           └── images/
+├── app/ (or src/app/)
+│   ├── api/
+│   │   └── blog/
+│   │       └── route.js        # Blog API endpoint
+│   └── blog/
+│       ├── page.jsx            # Blog listing page
+│       └── [slug]/
+│           └── page.jsx        # Individual blog post page
+└── hillnoteDoc/
+    └── components/
+        └── blog/               # Blog UI components
+```
+
+### Blog Workflow: Draft → Published
+
+1. **Create a draft**: Write your blog post in `public/blog/draft/my-post.md`
+
+2. **Add YAML frontmatter** at the top of your markdown file:
+   ```yaml
+   ---
+   title: "Your Blog Post Title"
+   author: "Your Name"
+   publishDate: "2025-01-15"
+   description: "A brief description for SEO and previews"
+   coverImage: "my-cover-image.jpg"  # or full URL
+   tags:
+     - Tutorial
+     - Feature
+   ---
+
+   Your blog content starts here...
+   ```
+
+3. **Publish the post**: Move the file to `public/blog/published/`
+   ```bash
+   mv public/blog/draft/my-post.md public/blog/published/
+   ```
+
+4. **Generate the blog**:
+   ```bash
+   node scripts/generate-blog.mjs --publish
+   ```
+
+### Blog Commands
+
+```bash
+# Initial setup - creates blog folder structure and components
+node scripts/generate-blog.mjs --setup
+
+# Publish - generates blog pages and updates registry
+node scripts/generate-blog.mjs --publish
+
+# Update - regenerates pages after editing posts
+# Note: Does NOT update sitemap.xml - run --publish for full regeneration
+node scripts/generate-blog.mjs --update
+
+# Help - show all available options
+node scripts/generate-blog.mjs --help
+```
+
+### Adding Images to Blog Posts
+
+For images in your blog posts:
+
+1. **Place images** in `public/blog/resources/images/`
+
+2. **Reference in frontmatter** (for cover images):
+   ```yaml
+   coverImage: "my-image.jpg"  # Resolves to /blog/resources/images/my-image.jpg
+   ```
+   Or use a full URL:
+   ```yaml
+   coverImage: "https://example.com/image.jpg"
+   ```
+
+3. **Reference in content** (for inline images):
+   ```markdown
+   ![Alt text](/blog/resources/images/my-image.jpg)
+   ```
+
+### Blog Templates
+
+Three pre-built blog templates are available:
+
+- **featured-grid** - Hero post with grid layout
+- **minimal-list** - Clean, simple list view
+- **magazine** - Publication-style layout
+
+Specify the template during setup or edit the generated page.
+
+### Blog Components
+
+#### BlogSection - Embeddable Homepage Component
+
+Display recent blog posts on your homepage or landing pages:
+
+```jsx
+import { BlogSection } from '@/hillnoteDoc/components/blog'
+
+// Basic usage - shows 3 posts
+<BlogSection />
+
+// Customized
+<BlogSection
+  limit={6}
+  title="Latest Articles"
+  description="News and updates from our team"
+  showViewAll={true}
+  className="bg-muted/50"
+/>
+```
+
+**Props:**
+- `limit` (number, default: 3) - Number of posts to display
+- `title` (string) - Section heading
+- `description` (string) - Subheading text
+- `showViewAll` (boolean, default: true) - Show "View all posts" link
+- `className` (string) - Additional CSS classes
+
+#### Other Blog Components
+
+```jsx
+import {
+  BlogHeader,      // Post header with title, author, date
+  BlogFooter,      // Post footer with tags and sharing
+  BlogCoverImage,  // Responsive cover image
+  BlogContent,     // Markdown content renderer
+  RelatedArticles, // Related posts section
+  BlogArticle,     // Full article wrapper
+  BackToBlog       // Navigation back to blog list
+} from '@/hillnoteDoc/components/blog'
+```
+
+### Blog API
+
+The blog API is available at `/api/blog`:
+
+```javascript
+// Get all posts
+fetch('/api/blog')
+  .then(res => res.json())
+  .then(data => console.log(data.posts))
+
+// Get single post by slug
+fetch('/api/blog?slug=my-post-title')
+  .then(res => res.json())
+  .then(data => console.log(data.post))
+```
+
+### Blog Registry
+
+For performance, the blog system generates a `blog-registry.json` file containing metadata for all posts. This is automatically updated when you run `--publish` or `--update`.
 
 ## 🎨 Customization
 

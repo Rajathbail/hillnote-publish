@@ -1,7 +1,7 @@
 {
   "name": "@hillnote/publish",
-  "version": "1.3.0",
-  "description": "Transform your Hillnote workspace into a beautiful documentation website with Next.js",
+  "version": "2.2.1",
+  "description": "Transform your Hillnote workspace into a beautiful documentation or Blog with Next.js. Usage: npx @hillnote/publish init",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

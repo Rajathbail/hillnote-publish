@@ -67,14 +67,17 @@ program
 
       spinner.text = 'Setting up scripts...'
 
-      // Copy generation script (single script with fallback logic)
+      // Copy generation scripts (pages and blog)
       const scriptsDir = join(cwd, 'scripts')
       await fs.ensureDir(scriptsDir)
 
       const scriptSource = join(packageRoot, 'templates', 'scripts', 'generate-pages.mjs')
       const scriptDest = join(scriptsDir, 'generate-pages.mjs')
-
       await fs.copy(scriptSource, scriptDest)
+
+      const blogScriptSource = join(packageRoot, 'templates', 'scripts', 'generate-blog.mjs')
+      const blogScriptDest = join(scriptsDir, 'generate-blog.mjs')
+      await fs.copy(blogScriptSource, blogScriptDest)
 
       spinner.text = 'Updating package.json...'
 
@@ -89,6 +92,18 @@ program
 
       if (!packageJson.scripts['prebuild']) {
         packageJson.scripts['prebuild'] = 'node scripts/generate-pages.mjs'
+      }
+
+      if (!packageJson.scripts['blog:setup']) {
+        packageJson.scripts['blog:setup'] = 'node scripts/generate-blog.mjs --setup'
+      }
+
+      if (!packageJson.scripts['blog:publish']) {
+        packageJson.scripts['blog:publish'] = 'node scripts/generate-blog.mjs --publish'
+      }
+
+      if (!packageJson.scripts['blog:update']) {
+        packageJson.scripts['blog:update'] = 'node scripts/generate-blog.mjs --update'
       }
 
       await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2))
@@ -141,6 +156,19 @@ program
         spinner.warn('Failed to auto-install dependencies. Please run: npm install')
       }
 
+      spinner.text = 'Installing shadcn UI components...'
+
+      // Install shadcn UI components
+      const shadcnComponents = ['accordion', 'button', 'dialog', 'input', 'scroll-area', 'sheet']
+      try {
+        execSync(`npx shadcn@latest add ${shadcnComponents.join(' ')} --yes`, {
+          cwd,
+          stdio: 'pipe'
+        })
+      } catch (error) {
+        spinner.warn('Failed to install shadcn components. Please run: npx shadcn@latest add accordion button dialog input scroll-area')
+      }
+
       spinner.succeed('Hillnote Publish initialized successfully!')
 
       console.log('\n' + chalk.green('✓') + ' Next steps:\n')
@@ -148,6 +176,10 @@ program
       console.log('  2. Configure your site in ' + chalk.cyan(`${hillnoteDocPath}/config/site.config.js`))
       console.log('  3. Run ' + chalk.cyan('npm run generate-pages') + ' to generate documentation pages')
       console.log('  4. Start your dev server with ' + chalk.cyan('npm run dev'))
+      console.log('\n' + chalk.dim('Blog commands:'))
+      console.log('  ' + chalk.cyan('npm run blog:setup') + '   - Initialize blog system')
+      console.log('  ' + chalk.cyan('npm run blog:publish') + ' - Publish blog posts')
+      console.log('  ' + chalk.cyan('npm run blog:update') + '  - Update existing posts')
       console.log('\n' + chalk.dim('Visit https://hillnote.com for more information'))
 
     } catch (error) {
