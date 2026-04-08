@@ -193,13 +193,14 @@ function prompt(question) {
   })
 }
 
-// Import site config for centralized URL with fallback
+// Load site config by reading as text (avoids MODULE_TYPELESS_PACKAGE_JSON warning)
 let configPath = path.join(projectRoot, 'hillnoteDoc', 'config', 'site.config.js')
 if (!fs.existsSync(configPath)) {
   configPath = path.join(projectRoot, 'src', 'hillnoteDoc', 'config', 'site.config.js')
 }
-const configModule = await import(configPath)
-const siteConfig = configModule.siteConfig
+const siteConfig = new Function(
+  fs.readFileSync(configPath, 'utf8').replace(/export\s+const\s+/, 'const ') + '\nreturn siteConfig;'
+)()
 
 // Determine app folder location (src/app or app)
 const appFolder = fs.existsSync(path.join(projectRoot, 'src', 'app')) ? path.join('src', 'app') : 'app'
@@ -1065,31 +1066,140 @@ function runUpdate() {
   }
 }
 
-// Parse command-line arguments
-const args = process.argv.slice(2)
-const options = {
-  setup: args.includes('--setup'),
-  publish: args.includes('--publish'),
-  update: args.includes('--update'),
-  help: args.includes('--help') || args.includes('-h')
+// ─── Config Editor ───────────────────────────────────────────────────────────
+
+const CONFIG_FIELDS = [
+  { key: 'siteName',                  label: 'Site name',          hint: 'Displayed in header & metadata' },
+  { key: 'siteDescription',           label: 'Site description',   hint: 'Meta description for the site' },
+  { key: 'siteUrl',                   label: 'Site URL',           hint: 'Production URL (e.g. https://docs.example.com)' },
+  { key: 'seo.author',                label: 'Author',             hint: 'Author name for metadata' },
+  { key: 'seo.publisher',             label: 'Publisher',          hint: 'Publisher for structured data' },
+  { key: 'seo.keywords',              label: 'Keywords',           hint: 'Comma-separated SEO keywords' },
+  { key: 'seo.twitterHandle',         label: 'Twitter handle',     hint: 'e.g. @yourhandle' },
+  { key: 'seo.ogImage',               label: 'OG image',           hint: 'Default Open Graph image path' },
+  { key: 'routing.docBase',           label: 'Doc base path',      hint: 'URL prefix for docs (e.g. "doc", "docs")' },
+]
+
+function getNestedValue(obj, dotPath) {
+  return dotPath.split('.').reduce((o, k) => o?.[k], obj)
 }
 
-// Show help if requested
-if (options.help) {
-  logHeader(`${icons.blog} Blog Generator Help`)
+function setNestedValue(obj, dotPath, value) {
+  const keys = dotPath.split('.')
+  let target = obj
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!target[keys[i]]) target[keys[i]] = {}
+    target = target[keys[i]]
+  }
+  target[keys[keys.length - 1]] = value
+}
 
-  log(`  ${colors.bold}Usage:${colors.reset} node generate-blog.mjs [options]`)
+function printConfig() {
+  log()
+  log(`  ${colors.bold}Site Configuration${colors.reset}  ${colors.dim}${path.basename(configPath)}${colors.reset}`)
   log()
 
-  logSubHeader('Commands')
-  log(`  ${colors.cyan}--setup${colors.reset}     Create blog folders and generate layout/index page`)
-  log(`  ${colors.cyan}--publish${colors.reset}   Publish all drafts from public/blog/draft`)
-  log(`              and move them to public/blog/published`)
-  log(`  ${colors.cyan}--update${colors.reset}    Regenerate all blog post pages from published/`)
-  log(`              ${colors.dim}(useful after updating blog components)${colors.reset}`)
-  log(`  ${colors.cyan}-h, --help${colors.reset}  Show this help message`)
+  for (let i = 0; i < CONFIG_FIELDS.length; i++) {
+    const f = CONFIG_FIELDS[i]
+    const val = getNestedValue(siteConfig, f.key)
+    const display = val === null || val === undefined ? `${colors.dim}(not set)${colors.reset}`
+      : typeof val === 'boolean' ? (val ? `${colors.green}true${colors.reset}` : `${colors.dim}false${colors.reset}`)
+      : `${colors.white}${val}${colors.reset}`
+    const num = String(i + 1).padStart(2)
+    log(`    ${colors.cyan}${num}${colors.reset}  ${f.label.padEnd(22)} ${display}`)
+    log(`        ${colors.dim}${f.hint}${colors.reset}`)
+  }
+  log()
+  log(`  ${colors.dim}Type a number to edit, or${colors.reset} ${colors.cyan}q${colors.reset} ${colors.dim}to go back${colors.reset}`)
+  log()
+}
+
+function writeConfigToDisk() {
+  let content = fs.readFileSync(configPath, 'utf8')
+
+  for (const field of CONFIG_FIELDS) {
+    const val = getNestedValue(siteConfig, field.key)
+    const lastKey = field.key.split('.').pop()
+
+    if (typeof val === 'boolean') {
+      const re = new RegExp(`(${lastKey}:\\s*)(?:true|false)`)
+      content = content.replace(re, `$1${val}`)
+    } else if (val === null) {
+      const re = new RegExp(`(${lastKey}:\\s*)(?:"[^"]*"|'[^']*'|null)`)
+      content = content.replace(re, `$1null`)
+    } else {
+      const escaped = String(val).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      const re = new RegExp(`(${lastKey}:\\s*)(?:"[^"]*"|'[^']*'|null)`)
+      content = content.replace(re, `$1"${escaped}"`)
+    }
+  }
+
+  fs.writeFileSync(configPath, content, 'utf8')
+}
+
+async function configEditor(askFn) {
+  printConfig()
+
+  while (true) {
+    const input = (await askFn(`  ${colors.cyan}config>${colors.reset} `)).trim()
+
+    if (input === 'q' || input === 'back' || input === '') break
+
+    const idx = parseInt(input, 10) - 1
+    if (isNaN(idx) || idx < 0 || idx >= CONFIG_FIELDS.length) {
+      log(`  ${colors.dim}Pick 1–${CONFIG_FIELDS.length} or q to go back${colors.reset}`)
+      continue
+    }
+
+    const field = CONFIG_FIELDS[idx]
+    const current = getNestedValue(siteConfig, field.key)
+
+    const val = (await askFn(`  ${colors.yellow}?${colors.reset} ${field.label} [${current ?? ''}]: `)).trim()
+    if (val) {
+      setNestedValue(siteConfig, field.key, val)
+      log(`  ${colors.green}${icons.success}${colors.reset} ${field.label} → ${colors.white}${val}${colors.reset}`)
+      writeConfigToDisk()
+      log(`  ${colors.dim}Saved to site.config.js${colors.reset}`)
+    }
+  }
+}
+
+// ─── Interactive CLI ──────────────────────────────────────────────────────────
+
+function printMenu() {
+  const draftCount = fs.existsSync(BLOG_DRAFT_PATH)
+    ? fs.readdirSync(BLOG_DRAFT_PATH).filter(f => f.endsWith('.md')).length
+    : 0
+  const publishedCount = fs.existsSync(BLOG_PUBLISHED_PATH)
+    ? fs.readdirSync(BLOG_PUBLISHED_PATH).filter(f => f.endsWith('.md')).length
+    : 0
+  const setupDone = fs.existsSync(BLOG_DRAFT_PATH) && fs.existsSync(BLOG_OUTPUT_PATH)
+
+  log()
+  log(`${colors.cyan}${box.topLeft}${box.horizontal.repeat(60)}${box.topRight}${colors.reset}`)
+  log(`${colors.cyan}${box.vertical}${colors.reset}${colors.bold}${colors.white}  Hillnote Publish — Blog Generator                         ${colors.reset}${colors.cyan}${box.vertical}${colors.reset}`)
+  log(`${colors.cyan}${box.bottomLeft}${box.horizontal.repeat(60)}${box.bottomRight}${colors.reset}`)
+  log()
+  log(`  ${colors.bold}Actions${colors.reset}`)
+  log(`    ${colors.cyan}1${colors.reset}  Setup blog           ${colors.dim}Create folders, layout & index page${colors.reset}`)
+  log(`    ${colors.cyan}2${colors.reset}  Publish drafts       ${colors.dim}${draftCount} draft(s) ready${colors.reset}`)
+  log(`    ${colors.cyan}3${colors.reset}  Update published     ${colors.dim}Regenerate ${publishedCount} post(s)${colors.reset}`)
+  log(`    ${colors.cyan}4${colors.reset}  Setup + Publish      ${colors.dim}Run both in sequence${colors.reset}`)
+  log()
+  log(`  ${colors.bold}Info${colors.reset}`)
+  log(`    ${colors.cyan}/config${colors.reset}   Edit site.config.js`)
+  log(`    ${colors.cyan}/status${colors.reset}   Blog status overview`)
+  log(`    ${colors.cyan}/help${colors.reset}     Frontmatter reference & CLI flags`)
+  log(`    ${colors.cyan}q${colors.reset}         Exit`)
   log()
 
+  if (!setupDone) {
+    log(`  ${colors.yellow}${icons.warning}${colors.reset} ${colors.yellow}Blog not set up yet. Run ${colors.bold}1${colors.reset}${colors.yellow} to get started.${colors.reset}`)
+    log()
+  }
+}
+
+function printHelp() {
   logSubHeader('Blog Post Frontmatter (YAML)')
   log(`  ${colors.green}Required:${colors.reset}`)
   log(`    ${colors.yellow}title${colors.reset}        ${colors.dim}Post title${colors.reset}`)
@@ -1100,55 +1210,135 @@ if (options.help) {
   log(`    ${colors.yellow}description${colors.reset}  ${colors.dim}Short description/excerpt${colors.reset}`)
   log(`    ${colors.yellow}editDate${colors.reset}     ${colors.dim}Last edit date (YYYY-MM-DD)${colors.reset}`)
   log(`    ${colors.yellow}coverImage${colors.reset}   ${colors.dim}Cover image URL${colors.reset}`)
-  log(`    ${colors.yellow}tags${colors.reset}         ${colors.dim}Array of tags${colors.reset}`)
+  log(`    ${colors.yellow}tags${colors.reset}         ${colors.dim}Comma-separated list of tags${colors.reset}`)
   log()
 
-  logSubHeader('Examples')
-  log(`  ${colors.dim}$${colors.reset} node generate-blog.mjs ${colors.cyan}--setup${colors.reset}`)
-  log(`    ${colors.dim}Initial setup - creates folders and files${colors.reset}`)
+  logSubHeader(`CLI Flags ${colors.dim}(for CI / npm scripts)${colors.reset}`)
+  log(`    ${colors.cyan}--setup${colors.reset}     ${colors.dim}Create blog folders and layout${colors.reset}`)
+  log(`    ${colors.cyan}--publish${colors.reset}   ${colors.dim}Publish all drafts${colors.reset}`)
+  log(`    ${colors.cyan}--update${colors.reset}    ${colors.dim}Regenerate all published posts${colors.reset}`)
+  log(`    ${colors.cyan}-h, --help${colors.reset}  ${colors.dim}Show this help and exit${colors.reset}`)
   log()
-  log(`  ${colors.dim}$${colors.reset} node generate-blog.mjs ${colors.cyan}--publish${colors.reset}`)
-  log(`    ${colors.dim}Publish all drafts${colors.reset}`)
-  log()
-  log(`  ${colors.dim}$${colors.reset} node generate-blog.mjs ${colors.cyan}--update${colors.reset}`)
-  log(`    ${colors.dim}Regenerate all published posts${colors.reset}`)
-  log()
-  log(`  ${colors.dim}$${colors.reset} node generate-blog.mjs ${colors.cyan}--setup --publish${colors.reset}`)
-  log(`    ${colors.dim}Setup and publish in one go${colors.reset}`)
-  log()
-
-  process.exit(0)
 }
 
-// Main execution
-async function main() {
-  if (!options.setup && !options.publish && !options.update) {
+function printStatus() {
+  logSubHeader(`${icons.blog} Blog Status`)
+
+  const setupDone = fs.existsSync(BLOG_DRAFT_PATH) && fs.existsSync(BLOG_OUTPUT_PATH)
+  log(`  Setup:     ${setupDone ? `${colors.green}${icons.success} Complete${colors.reset}` : `${colors.yellow}${icons.warning} Not initialized${colors.reset}`}`)
+
+  if (fs.existsSync(BLOG_DRAFT_PATH)) {
+    const drafts = fs.readdirSync(BLOG_DRAFT_PATH).filter(f => f.endsWith('.md'))
+    log(`  Drafts:    ${colors.bold}${drafts.length}${colors.reset} file(s) in ${colors.dim}public/blog/draft/${colors.reset}`)
+    if (drafts.length > 0) {
+      for (const f of drafts.slice(0, 8)) {
+        log(`    ${colors.gray}${icons.bullet}${colors.reset} ${f}`)
+      }
+      if (drafts.length > 8) log(`    ${colors.dim}... and ${drafts.length - 8} more${colors.reset}`)
+    }
+  } else {
+    log(`  Drafts:    ${colors.dim}(folder not created)${colors.reset}`)
+  }
+
+  if (fs.existsSync(BLOG_PUBLISHED_PATH)) {
+    const published = fs.readdirSync(BLOG_PUBLISHED_PATH).filter(f => f.endsWith('.md'))
+    log(`  Published: ${colors.bold}${published.length}${colors.reset} post(s) in ${colors.dim}public/blog/published/${colors.reset}`)
+  } else {
+    log(`  Published: ${colors.dim}(folder not created)${colors.reset}`)
+  }
+
+  if (fs.existsSync(BLOG_REGISTRY_PATH)) {
+    try {
+      const registry = JSON.parse(fs.readFileSync(BLOG_REGISTRY_PATH, 'utf8'))
+      log(`  Registry:  ${colors.bold}${registry.posts?.length || 0}${colors.reset} post(s) indexed`)
+    } catch { log(`  Registry:  ${colors.dim}(could not read)${colors.reset}`) }
+  } else {
+    log(`  Registry:  ${colors.dim}(not generated)${colors.reset}`)
+  }
+  log()
+}
+
+// Parse command-line arguments (for CI / npm scripts — bypass interactive mode)
+const args = process.argv.slice(2)
+const hasFlags = args.some(a => a.startsWith('--') || a === '-h')
+
+if (hasFlags) {
+  const options = {
+    setup: args.includes('--setup'),
+    publish: args.includes('--publish'),
+    update: args.includes('--update'),
+    help: args.includes('--help') || args.includes('-h'),
+  }
+
+  if (options.help) {
     logHeader(`${icons.blog} Blog Generator`)
-    logWarning('No action specified')
-    log()
-    log(`  ${colors.dim}Available commands:${colors.reset}`)
-    log(`    ${colors.cyan}--setup${colors.reset}     Initialize blog structure`)
-    log(`    ${colors.cyan}--publish${colors.reset}   Publish draft posts`)
-    log(`    ${colors.cyan}--update${colors.reset}    Regenerate published posts`)
-    log(`    ${colors.cyan}--help${colors.reset}      Show full help`)
-    log()
+    printHelp()
     process.exit(0)
   }
 
-  if (options.setup) {
-    await runSetup()
+  if (!options.setup && !options.publish && !options.update) {
+    logWarning('No action specified. Use --setup, --publish, or --update.')
+    process.exit(1)
   }
 
-  if (options.publish) {
-    runPublish()
+  try {
+    if (options.setup) await runSetup()
+    if (options.publish) runPublish()
+    if (options.update) runUpdate()
+  } catch (err) {
+    logErrorBox('Unexpected Error', [err.message || String(err)])
+    process.exit(1)
   }
-
-  if (options.update) {
-    runUpdate()
-  }
+  process.exit(0)
 }
 
-main().catch(err => {
+// Interactive mode
+async function interactive() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  const ask = (q) => new Promise((res) => rl.question(q, res))
+
+  printMenu()
+
+  while (true) {
+    const input = (await ask(`${colors.cyan}>${colors.reset} `)).trim().toLowerCase()
+
+    try {
+      if (input === 'q' || input === 'exit') {
+        break
+      } else if (input === '1') {
+        await runSetup()
+        printMenu()
+      } else if (input === '2') {
+        runPublish()
+        printMenu()
+      } else if (input === '3') {
+        runUpdate()
+        printMenu()
+      } else if (input === '4') {
+        await runSetup()
+        runPublish()
+        printMenu()
+      } else if (input === '/config') {
+        await configEditor(ask)
+        printMenu()
+      } else if (input === '/status') {
+        printStatus()
+      } else if (input === '/help') {
+        printHelp()
+      } else if (input === '') {
+        // ignore empty
+      } else {
+        log(`  ${colors.dim}Unknown command. Type a number or /command.${colors.reset}`)
+      }
+    } catch (err) {
+      logErrorBox('Error', [err.message || String(err)])
+    }
+  }
+
+  rl.close()
+}
+
+interactive().catch(err => {
   log()
   logErrorBox('Unexpected Error', [err.message || String(err)])
   process.exit(1)

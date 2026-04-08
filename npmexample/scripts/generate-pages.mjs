@@ -6,18 +6,20 @@ import { fileURLToPath } from 'url'
 import matter from 'gray-matter'
 import { marked } from 'marked'
 import { gfmHeadingId } from 'marked-gfm-heading-id'
+import readline from 'readline'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, '..')
 
-// Import site config for centralized URL with fallback
+// Load site config by reading as text (avoids MODULE_TYPELESS_PACKAGE_JSON warning)
 let configPath = path.join(projectRoot, 'hillnoteDoc', 'config', 'site.config.js')
 if (!fs.existsSync(configPath)) {
   configPath = path.join(projectRoot, 'src', 'hillnoteDoc', 'config', 'site.config.js')
 }
-const configModule = await import(configPath)
-const siteConfig = configModule.siteConfig
+const siteConfig = new Function(
+  fs.readFileSync(configPath, 'utf8').replace(/export\s+const\s+/, 'const ') + '\nreturn siteConfig;'
+)()
 
 // Determine app folder location (src/app or app)
 const appFolder = fs.existsSync(path.join(projectRoot, 'src', 'app')) ? path.join('src', 'app') : 'app'
@@ -1131,79 +1133,289 @@ Disallow: /
   fs.writeFileSync(path.join(projectRoot, 'public', 'robots.txt'), robotsContent)
 }
 
-// Parse command-line arguments
-const args = process.argv.slice(2)
-const options = {
-  noSitemap: args.includes('--no-sitemap'),
-  noRobots: args.includes('--no-robots'),
-  noLLMs: args.includes('--no-llms'),
-  help: args.includes('--help') || args.includes('-h')
+// ─── Interactive CLI ──────────────────────────────────────────────────────────
+
+const colors = {
+  reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
+  cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', gray: '\x1b[90m', white: '\x1b[37m',
 }
 
-// Show help if requested
-if (options.help) {
-  console.log(`
-Usage: node generate-pages.mjs [options]
+const toggles = {
+  sitemap: true,
+  robots: true,
+  llms: true,
+}
 
-Options:
-  --no-sitemap     Do not generate sitemap.xml
-  --no-robots      Do not generate robots.txt
-  --no-llms        Do not generate llms.txt and llms-txt.txt files
-  -h, --help       Show this help message
+// ─── Config Editor ───────────────────────────────────────────────────────────
 
-Note: doc/page.* and doc/layout.* files are always preserved.
-      Document pages are always regenerated from markdown.
+const CONFIG_FIELDS = [
+  { key: 'siteName',                    label: 'Site name',            hint: 'Displayed in header & metadata' },
+  { key: 'siteDescription',             label: 'Site description',     hint: 'Meta description for the site' },
+  { key: 'siteUrl',                     label: 'Site URL',             hint: 'Production URL (e.g. https://docs.example.com)' },
+  { key: 'workspace.path',              label: 'Workspace path',       hint: 'Path under public/ to your workspace' },
+  { key: 'workspace.documentsFolder',   label: 'Documents folder',     hint: 'Folder name inside workspace' },
+  { key: 'workspace.registryFile',      label: 'Registry file',        hint: 'Name of documents-registry.json' },
+  { key: 'workspace.initialFile',       label: 'Initial file',         hint: 'First document shown on load' },
+  { key: 'routing.docBase',             label: 'Doc base path',        hint: 'URL prefix for docs (e.g. "doc", "docs", "wiki")' },
+  { key: 'seo.author',                  label: 'Author',               hint: 'Author name for metadata' },
+  { key: 'seo.publisher',               label: 'Publisher',            hint: 'Publisher for structured data' },
+  { key: 'seo.keywords',                label: 'Keywords',             hint: 'Comma-separated SEO keywords' },
+  { key: 'seo.twitterHandle',           label: 'Twitter handle',       hint: 'e.g. @yourhandle' },
+  { key: 'seo.allowAIBots',             label: 'Allow AI bots',        hint: 'Allow GPTBot, Claude-Web, etc. in robots.txt', type: 'bool' },
+  { key: 'ui.navigationMode',           label: 'Navigation mode',      hint: '"emoji" or "wiki"', choices: ['emoji', 'wiki'] },
+  { key: 'ui.showHeaders',              label: 'Show headers',         hint: 'Document title at top of page', type: 'bool' },
+  { key: 'ui.authorsNotes.enabled',     label: "Author's notes",       hint: 'Show notes section at bottom', type: 'bool' },
+  { key: 'ui.relatedDocuments.enabled', label: 'Related documents',    hint: 'Show related docs section', type: 'bool' },
+]
 
-Examples:
-  node generate-pages.mjs                           # Generate everything
-  node generate-pages.mjs --no-sitemap --no-robots  # Skip sitemap and robots.txt generation
-`)
+function getNestedValue(obj, dotPath) {
+  return dotPath.split('.').reduce((o, k) => o?.[k], obj)
+}
+
+function setNestedValue(obj, dotPath, value) {
+  const keys = dotPath.split('.')
+  let target = obj
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!target[keys[i]]) target[keys[i]] = {}
+    target = target[keys[i]]
+  }
+  target[keys[keys.length - 1]] = value
+}
+
+function printConfig() {
+  console.log()
+  console.log(`  ${colors.bold}Site Configuration${colors.reset}  ${colors.dim}${path.basename(configPath)}${colors.reset}`)
+  console.log()
+
+  for (let i = 0; i < CONFIG_FIELDS.length; i++) {
+    const f = CONFIG_FIELDS[i]
+    const val = getNestedValue(siteConfig, f.key)
+    const display = val === null || val === undefined ? `${colors.dim}(not set)${colors.reset}`
+      : typeof val === 'boolean' ? (val ? `${colors.green}true${colors.reset}` : `${colors.dim}false${colors.reset}`)
+      : `${colors.white}${val}${colors.reset}`
+    const num = String(i + 1).padStart(2)
+    console.log(`    ${colors.cyan}${num}${colors.reset}  ${f.label.padEnd(22)} ${display}`)
+    console.log(`        ${colors.dim}${f.hint}${colors.reset}`)
+  }
+  console.log()
+  console.log(`  ${colors.dim}Type a number to edit, or${colors.reset} ${colors.cyan}q${colors.reset} ${colors.dim}to go back${colors.reset}`)
+  console.log()
+}
+
+function writeConfigToDisk() {
+  let content = fs.readFileSync(configPath, 'utf8')
+
+  for (const field of CONFIG_FIELDS) {
+    const val = getNestedValue(siteConfig, field.key)
+    const lastKey = field.key.split('.').pop()
+
+    if (typeof val === 'boolean') {
+      const re = new RegExp(`(${lastKey}:\\s*)(?:true|false)`)
+      content = content.replace(re, `$1${val}`)
+    } else if (val === null) {
+      const re = new RegExp(`(${lastKey}:\\s*)(?:"[^"]*"|'[^']*'|null)`)
+      content = content.replace(re, `$1null`)
+    } else {
+      const escaped = String(val).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      const re = new RegExp(`(${lastKey}:\\s*)(?:"[^"]*"|'[^']*'|null)`)
+      content = content.replace(re, `$1"${escaped}"`)
+    }
+  }
+
+  fs.writeFileSync(configPath, content, 'utf8')
+}
+
+async function configEditor(ask) {
+  printConfig()
+
+  while (true) {
+    const input = (await ask(`  ${colors.cyan}config>${colors.reset} `)).trim()
+
+    if (input === 'q' || input === 'back' || input === '') break
+
+    const idx = parseInt(input, 10) - 1
+    if (isNaN(idx) || idx < 0 || idx >= CONFIG_FIELDS.length) {
+      console.log(`  ${colors.dim}Pick 1–${CONFIG_FIELDS.length} or q to go back${colors.reset}`)
+      continue
+    }
+
+    const field = CONFIG_FIELDS[idx]
+    const current = getNestedValue(siteConfig, field.key)
+
+    if (field.type === 'bool') {
+      const newVal = !current
+      setNestedValue(siteConfig, field.key, newVal)
+      console.log(`  ${colors.green}✓${colors.reset} ${field.label} → ${newVal ? `${colors.green}true${colors.reset}` : `${colors.dim}false${colors.reset}`}`)
+    } else if (field.choices) {
+      console.log(`  ${colors.dim}Options: ${field.choices.join(', ')}${colors.reset}`)
+      const val = (await ask(`  ${colors.yellow}?${colors.reset} ${field.label} [${current}]: `)).trim()
+      if (val && field.choices.includes(val)) {
+        setNestedValue(siteConfig, field.key, val)
+        console.log(`  ${colors.green}✓${colors.reset} ${field.label} → ${colors.white}${val}${colors.reset}`)
+      } else if (val) {
+        console.log(`  ${colors.dim}Must be one of: ${field.choices.join(', ')}${colors.reset}`)
+        continue
+      }
+    } else {
+      const val = (await ask(`  ${colors.yellow}?${colors.reset} ${field.label} [${current ?? ''}]: `)).trim()
+      if (val) {
+        setNestedValue(siteConfig, field.key, val)
+        console.log(`  ${colors.green}✓${colors.reset} ${field.label} → ${colors.white}${val}${colors.reset}`)
+      }
+    }
+
+    writeConfigToDisk()
+    console.log(`  ${colors.dim}Saved to site.config.js${colors.reset}`)
+  }
+}
+
+function printMenu() {
+  const on = `${colors.green}on${colors.reset}`
+  const off = `${colors.dim}off${colors.reset}`
+
+  console.log()
+  console.log(`${colors.cyan}╭────────────────────────────────────────────────────────────╮${colors.reset}`)
+  console.log(`${colors.cyan}│${colors.reset}${colors.bold}${colors.white}  Hillnote Publish — Page Generator                        ${colors.reset}${colors.cyan}│${colors.reset}`)
+  console.log(`${colors.cyan}╰────────────────────────────────────────────────────────────╯${colors.reset}`)
+  console.log()
+  console.log(`  ${colors.bold}Actions${colors.reset}`)
+  console.log(`    ${colors.cyan}1${colors.reset}  Generate all pages`)
+  console.log(`    ${colors.cyan}2${colors.reset}  Clean generated pages only`)
+  console.log()
+  console.log(`  ${colors.bold}Options${colors.reset}  ${colors.dim}(type to toggle)${colors.reset}`)
+  console.log(`    ${colors.cyan}/sitemap${colors.reset}  Generate sitemap.xml          ${toggles.sitemap ? on : off}`)
+  console.log(`    ${colors.cyan}/robots${colors.reset}   Generate robots.txt           ${toggles.robots ? on : off}`)
+  console.log(`    ${colors.cyan}/llms${colors.reset}     Generate llms.txt             ${toggles.llms ? on : off}`)
+  console.log()
+  console.log(`    ${colors.cyan}/config${colors.reset}   Edit site.config.js`)
+  console.log(`    ${colors.cyan}/help${colors.reset}     Show reference`)
+  console.log(`    ${colors.cyan}q${colors.reset}         Exit`)
+  console.log()
+}
+
+function printHelp() {
+  console.log()
+  console.log(`  ${colors.bold}Page Generation${colors.reset}`)
+  console.log(`  ${colors.dim}Converts Hillnote markdown documents into static Next.js pages.${colors.reset}`)
+  console.log(`  ${colors.dim}doc/page.* and doc/layout.* files are always preserved.${colors.reset}`)
+  console.log()
+  console.log(`  ${colors.bold}Generated Files${colors.reset}`)
+  console.log(`    ${colors.yellow}sitemap.xml${colors.reset}    ${colors.dim}Search engine sitemap (public/)${colors.reset}`)
+  console.log(`    ${colors.yellow}robots.txt${colors.reset}     ${colors.dim}Crawler directives (public/)${colors.reset}`)
+  console.log(`    ${colors.yellow}llms.txt${colors.reset}       ${colors.dim}LLM-readable site index (public/)${colors.reset}`)
+  console.log(`    ${colors.yellow}llms-txt.txt${colors.reset}   ${colors.dim}Extended LLM file with content previews${colors.reset}`)
+  console.log()
+  console.log(`  ${colors.bold}CLI Flags${colors.reset} ${colors.dim}(for CI / npm scripts)${colors.reset}`)
+  console.log(`    ${colors.cyan}--no-sitemap${colors.reset}  ${colors.dim}Skip sitemap generation${colors.reset}`)
+  console.log(`    ${colors.cyan}--no-robots${colors.reset}   ${colors.dim}Skip robots.txt generation${colors.reset}`)
+  console.log(`    ${colors.cyan}--no-llms${colors.reset}     ${colors.dim}Skip llms.txt generation${colors.reset}`)
+  console.log(`    ${colors.cyan}-h, --help${colors.reset}    ${colors.dim}Show this help and exit${colors.reset}`)
+  console.log()
+}
+
+function runGenerate(opts) {
+  console.log('\n🔄 Generating SEO-optimized static pages from Hillnote documents...\n')
+
+  cleanOldPages(OUTPUT_PATH)
+  generateLayout()
+
+  const pages = processDirectory(HILLNOTE_PATH)
+
+  if (pages.length === 0) {
+    console.error('❌ No markdown files found in:', HILLNOTE_PATH)
+    return
+  }
+
+  if (opts.sitemap) {
+    generateSitemap(pages)
+  } else {
+    console.log('  ⏭ Skipping sitemap.xml generation')
+  }
+
+  if (opts.robots) {
+    generateRobotsTxt()
+  } else {
+    console.log('  ⏭ Skipping robots.txt generation')
+  }
+
+  if (opts.llms) {
+    generateLLMsTxt(pages)
+  } else {
+    console.log('  ⏭ Skipping llms.txt generation')
+  }
+
+  console.log(`\n✅ Successfully generated ${pages.length} static pages!`)
+  console.log('📁 Pages created in:', OUTPUT_PATH)
+  if (opts.sitemap) console.log('🗺️  Sitemap created: public/sitemap.xml (all pages)')
+  if (opts.robots) console.log('🤖 Robots.txt: public/robots.txt')
+  if (opts.llms) {
+    console.log('🤖 LLMs.txt: public/llms.txt (main LLM-readable file)')
+    console.log('📚 Extended LLMs: public/llms-txt.txt (with content previews)')
+  }
+}
+
+// Parse command-line arguments (for CI / npm scripts — bypass interactive mode)
+const args = process.argv.slice(2)
+const hasFlags = args.length > 0
+
+if (hasFlags) {
+  if (args.includes('--help') || args.includes('-h')) {
+    printHelp()
+    process.exit(0)
+  }
+
+  runGenerate({
+    sitemap: !args.includes('--no-sitemap'),
+    robots: !args.includes('--no-robots'),
+    llms: !args.includes('--no-llms'),
+  })
   process.exit(0)
 }
 
-// Main execution
-console.log('🔄 Generating SEO-optimized static pages from Hillnote documents...\n')
+// Interactive mode
+async function interactive() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  const ask = (q) => new Promise((res) => rl.question(q, res))
 
-// Clean old generated pages first (preserves page.* and layout.* files)
-cleanOldPages(OUTPUT_PATH)
+  printMenu()
 
-// Generate the shared layout (only if no layout.* exists)
-generateLayout()
+  while (true) {
+    const input = (await ask(`${colors.cyan}>${colors.reset} `)).trim().toLowerCase()
 
-// Process all documents (always regenerates document pages from markdown)
-const pages = processDirectory(HILLNOTE_PATH)
+    if (input === 'q' || input === 'exit') {
+      break
+    } else if (input === '1') {
+      runGenerate({ ...toggles })
+      printMenu()
+    } else if (input === '2') {
+      console.log('\n🧹 Cleaning generated pages...')
+      cleanOldPages(OUTPUT_PATH)
+      console.log('✅ Done. Layout and page.* files preserved.\n')
+    } else if (input === '/sitemap') {
+      toggles.sitemap = !toggles.sitemap
+      printMenu()
+    } else if (input === '/robots') {
+      toggles.robots = !toggles.robots
+      printMenu()
+    } else if (input === '/llms') {
+      toggles.llms = !toggles.llms
+      printMenu()
+    } else if (input === '/config') {
+      await configEditor(ask)
+      printMenu()
+    } else if (input === '/help') {
+      printHelp()
+    } else if (input === '') {
+      // ignore empty
+    } else {
+      console.log(`  ${colors.dim}Unknown command. Type a number or /option.${colors.reset}`)
+    }
+  }
 
-if (pages.length === 0) {
-  console.error('❌ No markdown files found in:', HILLNOTE_PATH)
+  rl.close()
+}
+
+interactive().catch(err => {
+  console.error('Error:', err.message)
   process.exit(1)
-}
-
-// Generate sitemap for SEO
-if (!options.noSitemap) {
-  generateSitemap(pages)
-} else {
-  console.log('  ⏭ Skipping sitemap.xml generation (--no-sitemap)')
-}
-
-// Generate robots.txt
-if (!options.noRobots) {
-  generateRobotsTxt()
-} else {
-  console.log('  ⏭ Skipping robots.txt generation (--no-robots)')
-}
-
-// Generate LLMs.txt files
-if (!options.noLLMs) {
-  generateLLMsTxt(pages)
-} else {
-  console.log('  ⏭ Skipping llms.txt generation (--no-llms)')
-}
-
-console.log(`\n✅ Successfully generated ${pages.length} static pages!`)
-console.log('📁 Pages created in:', OUTPUT_PATH)
-if (!options.noSitemap) console.log('🗺️  Sitemap created: public/sitemap.xml (all pages)')
-if (!options.noRobots) console.log('🤖 Robots.txt: public/robots.txt')
-if (!options.noLLMs) {
-  console.log('🤖 LLMs.txt: public/llms.txt (main LLM-readable file)')
-  console.log('📚 Extended LLMs: public/llms-txt.txt (with content previews)')
-}
+})
